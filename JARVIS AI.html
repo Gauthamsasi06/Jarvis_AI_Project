@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JARVIS AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Inter:wght@400;600;800&display=swap">
+<style>
+:root{
+  --accent:#00F0FF; --accent2:#B026FF; --accent3:#FF2E9F;
+  --bg1:#171233; --bg2:#0B0F19; --bg3:#05070d;
+  --text:#E8ECF4; --muted:#9aa4c0;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:'Inter',sans-serif; color:var(--text);
+  background:radial-gradient(circle at 15% 0%, var(--bg1) 0%, var(--bg2) 45%, var(--bg3) 100%);
+  min-height:100%; position:relative; overflow-x:hidden;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.bg-orb{
+  position:fixed; border-radius:50%; filter:blur(70px); opacity:0.22; pointer-events:none; z-index:0;
+  animation:float-orb 20s ease-in-out infinite;
+}
+.bg-orb.o1{ width:420px; height:420px; top:-100px; left:-100px; background:var(--accent); animation-duration:22s; }
+.bg-orb.o2{ width:360px; height:360px; bottom:-120px; right:-80px; background:var(--accent2); animation-duration:26s; animation-delay:-6s; }
+.bg-orb.o3{ width:300px; height:300px; top:40%; right:10%; background:var(--accent3); animation-duration:20s; animation-delay:-3s; }
+@keyframes float-orb{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  33%{ transform:translate(30px,-40px) scale(1.08); }
+  66%{ transform:translate(-25px,25px) scale(0.95); }
+}
+.layout{ position:relative; z-index:1; }
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:8px;}
+
+.layout{display:flex; min-height:100vh; align-items:flex-start;}
+.sidebar{
+  width:300px; flex:0 0 300px; padding:18px 16px; position:sticky; top:0;
+  background:rgba(255,255,255,0.02); border-right:1px solid rgba(255,255,255,0.07);
+  height:100vh; overflow-y:auto;
+}
+.main{flex:1; padding:20px 26px 60px 26px; min-width:0; overflow-x:hidden;}
+
+@keyframes fadeSlideUp{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
+@keyframes popIn{ from{ opacity:0; transform:scale(0.9); } to{ opacity:1; transform:scale(1); } }
+
+.sb-h{font-family:'Orbitron',sans-serif; font-size:0.85rem; letter-spacing:.06em; color:var(--muted); text-transform:uppercase; margin:18px 0 8px 0;}
+.sb-h:first-child{margin-top:0;}
+label.field-label{display:block; font-size:0.78rem; color:var(--muted); margin:10px 0 4px 0;}
+select, input[type=text], input[type=password], input[type=number]{
+  width:100%; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.04); color:var(--text); font-size:0.85rem;
+}
+input[type=file]{color:var(--muted); font-size:0.8rem;}
+.sidebar-panel{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:10px 14px; margin-bottom:8px; font-size:0.82rem; line-height:1.6;}
+.btn{
+  display:inline-block; width:100%; text-align:center; padding:9px 14px; border-radius:10px;
+  font-weight:700; font-size:0.85rem; border:1px solid var(--accent); background:transparent;
+  color:var(--accent); cursor:pointer; margin-top:8px; transition:transform .15s, box-shadow .15s, background .15s;
+  position:relative; overflow:hidden;
+}
+.btn:hover{ background:rgba(255,255,255,0.06); transform:translateY(-2px); box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent); }
+.btn:active{ transform:translateY(0) scale(0.97); }
+.btn.primary{background:linear-gradient(90deg, var(--accent), var(--accent2)); color:#0B0F19; border:none; box-shadow:0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent);}
+.btn.primary:hover{ box-shadow:0 8px 24px color-mix(in srgb, var(--accent) 55%, transparent); }
+.btn:disabled{opacity:.45; cursor:not-allowed; transform:none !important; box-shadow:none !important;}
+.checklist{max-height:150px; overflow-y:auto; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:8px;}
+.checklist label{display:block; font-size:0.8rem; padding:2px 0; cursor:pointer;}
+details{margin-top:8px;}
+summary{cursor:pointer; font-size:0.82rem; color:var(--muted); padding:4px 0;}
+.range-row{display:flex; gap:6px; align-items:center;}
+.range-row input{width:100%;}
+
+/* HERO */
+.jarvis-hero{text-align:center; padding:6px 10px 18px 10px;}
+.jarvis-title{
+  font-family:'Orbitron',sans-serif; font-size:2.6rem; font-weight:800;
+  background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 35%, white), var(--accent2), var(--accent));
+  background-size:300% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  animation:shine 6s linear infinite; margin:0;
+}
+@keyframes shine{to{background-position:300% center;}}
+.jarvis-subtitle{color:var(--muted); font-style:italic; margin-top:4px; font-size:1rem;}
+.badge{display:inline-block; padding:5px 14px; border-radius:999px; font-size:0.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin:8px 4px 0 4px; border:1px solid;}
+.badge1{color:var(--accent); border-color:var(--accent);}
+.badge2{color:var(--accent2); border-color:var(--accent2);}
+.badge3{color:var(--accent3); border-color:var(--accent3);}
+.filter-banner{display:inline-block; padding:6px 16px; border-radius:999px; background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 15%, transparent), transparent); border:1px solid var(--accent); color:var(--accent); font-weight:700; font-size:0.82rem; margin-bottom:10px;}
+
+/* KPI */
+.kpi-grid{display:grid; grid-template-columns:repeat(8,1fr); gap:10px; margin-bottom:6px;}
+@media (max-width:1100px){.kpi-grid{grid-template-columns:repeat(4,1fr);}}
+@media (max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi-card{border-radius:16px; padding:14px 8px 12px 8px; background:linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.08); text-align:center; transition:transform .15s; animation:popIn 0.45s cubic-bezier(.2,.8,.3,1.2) backwards;}
+.kpi-card:nth-child(1){animation-delay:.02s;} .kpi-card:nth-child(2){animation-delay:.06s;}
+.kpi-card:nth-child(3){animation-delay:.10s;} .kpi-card:nth-child(4){animation-delay:.14s;}
+.kpi-card:nth-child(5){animation-delay:.18s;} .kpi-card:nth-child(6){animation-delay:.22s;}
+.kpi-card:nth-child(7){animation-delay:.26s;} .kpi-card:nth-child(8){animation-delay:.30s;}
+.kpi-card:hover{transform:translateY(-3px);}
+.kpi-icon{font-size:1.2rem;}
+.kpi-value{font-size:1.5rem; font-weight:800; font-family:'Orbitron',sans-serif;}
+.kpi-label{color:var(--muted); font-size:0.65rem; letter-spacing:.06em; text-transform:uppercase; margin-top:2px;}
+
+/* SECTIONS */
+.jarvis-section{font-family:'Orbitron',sans-serif; font-size:1.05rem; font-weight:700; border-left:4px solid var(--accent); padding-left:10px; margin:20px 0 10px 0;}
+.glass-panel{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:16px; padding:16px 18px; margin-bottom:14px;}
+.insight-card{background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(176,38,255,0.05)); border:1px solid var(--accent); border-radius:12px; padding:12px 16px; margin-bottom:8px; font-size:0.92rem; line-height:1.5; animation:fadeSlideUp 0.4s ease backwards;}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+.grid32{display:grid; grid-template-columns:3fr 2fr; gap:16px;}
+@media (max-width:900px){.grid2,.grid32{grid-template-columns:1fr;}}
+.plot{width:100%; height:340px;}
+.plot.tall{height:420px;}
+table.dframe{width:100%; border-collapse:collapse; font-size:0.78rem;}
+table.dframe th{position:sticky; top:0; background:#131826; color:var(--accent); text-align:left; padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.15);}
+table.dframe td{padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.05); white-space:nowrap;}
+.table-scroll{max-height:280px; overflow:auto; border-radius:10px; border:1px solid rgba(255,255,255,0.08);}
+
+/* TABS */
+.tabbar{display:flex; gap:6px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:6px;}
+.tabbtn{background:rgba(255,255,255,0.03); border:none; border-radius:10px 10px 0 0; padding:10px 16px; font-weight:700; color:var(--muted); cursor:pointer; font-size:0.85rem;}
+.tabbtn.active{background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, transparent), rgba(176,38,255,0.15)); color:var(--accent);}
+.tabpanel{display:none;}
+.tabpanel.active{display:block; animation:fadeSlideUp 0.35s ease;}
+
+.msg{padding:10px 14px; border-radius:10px; font-size:0.85rem; margin:8px 0;}
+.msg.info{background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.3);}
+.msg.warn{background:rgba(255,212,0,0.1); border:1px solid rgba(255,212,0,0.4);}
+.msg.err{background:rgba(255,46,159,0.1); border:1px solid rgba(255,46,159,0.4);}
+.msg.ok{background:rgba(57,255,106,0.1); border:1px solid rgba(57,255,106,0.4);}
+.center{text-align:center;}
+.hidden{display:none !important;}
+textarea.qbox{width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.04); color:var(--text); font-family:inherit; font-size:0.9rem;}
+code.codebox{display:block; white-space:pre-wrap; background:#0B0F19; padding:12px; border-radius:10px; font-size:0.78rem; border:1px solid rgba(255,255,255,0.1);}
+.small-note{font-size:0.75rem; color:var(--muted); margin-top:4px;}
+
+/* DROPZONE */
+.dropzone{
+  max-width:640px; margin:10px auto 0 auto; padding:40px 20px; text-align:center;
+  border:2px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius:20px; background:rgba(255,255,255,0.02); cursor:pointer; transition:.15s;
+}
+.dropzone:hover, .dropzone.dragover{ background:color-mix(in srgb, var(--accent) 8%, transparent); border-color:var(--accent); }
+.dropzone-icon{font-size:2.2rem;}
+.dropzone-title{font-weight:700; margin-top:8px;}
+.dropzone-sub{color:var(--muted); font-size:0.8rem; margin-top:4px;}
+.sample-btn{width:auto; display:inline-block; padding:8px 16px; margin:4px 6px;}
+
+/* METRIC CARDS (post-upload quick summary) */
+.metric-row{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:10px;}
+@media (max-width:700px){.metric-row{grid-template-columns:repeat(2,1fr);}}
+.metric-card{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px 16px; animation:fadeSlideUp 0.4s ease backwards;}
+.metric-card:nth-child(1){animation-delay:.02s;} .metric-card:nth-child(2){animation-delay:.08s;}
+.metric-card:nth-child(3){animation-delay:.14s;} .metric-card:nth-child(4){animation-delay:.20s;}
+.metric-card .m-label{font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+.metric-card .m-value{font-size:1.4rem; font-weight:800; font-family:'Orbitron',sans-serif; color:var(--text);}
+
+/* QUICK INSIGHTS */
+.quick-row{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+.quick-btn{width:auto; padding:9px 16px;}
+.quick-result{margin-top:6px;}
+
+/* SEARCH + SORTABLE TABLE */
+.table-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:10px;}
+.table-search{flex:0 0 240px;}
+th.sortable{cursor:pointer; user-select:none;}
+th.sortable:hover{color:var(--accent);}
+th.sortable .arrow{opacity:0.5; font-size:0.7em;}
+
+/* STATUS STEPS */
+.step-list{list-style:none; padding:0; margin:8px 0; font-size:0.85rem;}
+.step-list li{padding:4px 0; color:var(--muted);}
+.step-list li.done{color:var(--text);}
+.step-list li.active{color:var(--accent); font-weight:700;}
+.step-list li .chk{display:inline-block; width:1.2em;}
+@keyframes pulseGlow{ 0%,100%{ box-shadow:0 0 10px var(--glow-color, transparent);} 50%{ box-shadow:0 0 26px var(--glow-color, transparent);} }
+.pulse-glow{ animation: pulseGlow 2.2s ease-in-out infinite; }
+.ripple{ position:absolute; border-radius:50%; background:rgba(255,255,255,0.45); transform:scale(0); animation:rippleAnim 0.6s ease-out; pointer-events:none; }
+@keyframes rippleAnim{ to{ transform:scale(3); opacity:0; } }
+</style>
+</head>
+<body>
+<div class="bg-orb o1"></div>
+<div class="bg-orb o2"></div>
+<div class="bg-orb o3"></div>
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-h">🎨 Dashboard Theme</div>
+    <label class="field-label">Accent color</label>
+    <select id="accentSelect"></select>
+
+    <div class="sb-h">📤 Upload Data</div>
+    <input type="file" id="csvInput" accept=".csv">
+    <div id="datasetInfo"></div>
+
+    <div id="filtersSection" class="hidden">
+      <div class="sb-h">🧹 Filters</div>
+      <details>
+        <summary>Filter by category</summary>
+        <div id="catFilters"></div>
+      </details>
+      <details>
+        <summary>Filter by range</summary>
+        <div id="numFilters"></div>
+        <button class="btn" id="applyRangeBtn">Apply range filters</button>
+      </details>
+      <button class="btn" id="resetFiltersBtn">↺ Reset all filters</button>
+
+      <div class="sb-h">📥 Data Export</div>
+      <button class="btn" id="downloadCsvBtn">Download filtered CSV</button>
+    </div>
+
+    <div class="sb-h">👥 About</div>
+    <div class="sidebar-panel">
+      JARVIS AI profiles your CSV, finds hidden patterns, flags anomalies, and answers
+      questions about your data — powered by Claude, running live in this page.
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="jarvis-hero">
+      <div class="jarvis-title">⚡ JARVIS AI</div>
+      <div class="jarvis-subtitle">"An AI that reverse-engineers reality from data."</div>
+      <div>
+        <span class="badge badge1">AUTONOMOUS AGENT</span>
+        <span class="badge badge2">CLAUDE-POWERED</span>
+        <span class="badge badge3">REAL-TIME INSIGHTS</span>
+      </div>
+    </div>
+
+    <div id="emptyState">
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">📤</div>
+        <div class="dropzone-title">Drag & drop a CSV here, or click to browse</div>
+        <div class="dropzone-sub">Your data stays in this browser tab — nothing is uploaded anywhere.</div>
+        <input type="file" id="csvInputHero" accept=".csv" class="hidden">
+      </div>
+      <div class="center small-note" style="margin:14px 0 6px 0;">— or try a sample dataset —</div>
+      <div class="center">
+        <button class="btn sample-btn" id="loadSalesSample">📊 Load Sample Sales Data</button>
+        <button class="btn sample-btn" id="loadHrSample">🧑‍💼 Load Sample HR Data</button>
+      </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+      <div id="filterBannerWrap" class="center"></div>
+      <div class="metric-row" id="metricRow"></div>
+      <details class="glass-panel" id="dtypesPanel" style="margin-bottom:14px;">
+        <summary>🔍 Column types &amp; missing values (click to expand)</summary>
+        <div id="dtypesTable" style="margin-top:10px;"></div>
+      </details>
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div class="jarvis-section">⚡ Quick Insights (no typing needed)</div>
+      <div class="quick-row">
+        <button class="btn quick-btn" id="qiSummaryBtn">📈 Generate Summary Statistics</button>
+        <button class="btn quick-btn" id="qiOutliersBtn">🚨 Detect Outliers</button>
+        <button class="btn quick-btn" id="qiCorrBtn">🔗 Show Correlation Matrix</button>
+      </div>
+      <div class="quick-result" id="quickResult"></div>
+
+      <div class="tabbar">
+        <button class="tabbtn active" data-tab="overview">📊 Overview</button>
+        <button class="tabbtn" data-tab="health">🩺 Data Health</button>
+        <button class="tabbtn" data-tab="deep">🔬 Deep Dive</button>
+        <button class="tabbtn" data-tab="insights">🧠 AI Insights</button>
+        <button class="tabbtn" data-tab="ask">💬 Ask JARVIS</button>
+        <button class="tabbtn" data-tab="anomalies">🚨 Anomalies</button>
+        <button class="tabbtn" data-tab="export">📄 Export</button>
+      </div>
+
+      <div class="tabpanel active" id="tab-overview">
+        <div class="jarvis-section">Data Preview</div>
+        <div class="table-toolbar">
+          <input type="text" class="table-search" id="previewSearch" placeholder="🔎 Search rows...">
+          <span class="small-note" id="previewCount"></span>
+        </div>
+        <div class="table-scroll glass-panel" id="previewTable"></div>
+        <div class="grid32">
+          <div>
+            <div class="jarvis-section">Correlation Heatmap</div>
+            <div id="corrPlot" class="plot"></div>
+          </div>
+          <div>
+            <div class="jarvis-section">Column Mix</div>
+            <div id="mixPlot" class="plot"></div>
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <div class="jarvis-section">Distribution Explorer</div>
+            <label class="field-label">Numeric column</label>
+            <select id="distColSelect"></select>
+            <div id="distPlot" class="plot"></div>
+          </div>
+          <div>
+            <div class="jarvis-section">Category Breakdown</div>
+            <label class="field-label">Categorical column</label>
+            <select id="catColSelect"></select>
+            <div id="catPlot" class="plot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="tab-health">
+        <div class="grid32">
+          <div>
+            <div class="jarvis-section">Data Health Score</div>
+            <div id="gaugePlot" class="plot"></div>
+            <div class="glass-panel center"><span id="verdictLabel" style="font-weight:800; font-size:1.05rem;"></span></div>
+          </div>
+          <div>
+            <div class="jarvis-section">Quality Breakdown</div>
+            <div id="qualityPlot" class="plot"></div>
+            <div class="jarvis-section">Missing Values Per Column</div>
+            <div id="missingPlot" class="plot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="tab-deep">
+        <div class="jarvis-section">Relationship Explorer</div>
+        <div class="grid2">
+          <div><label class="field-label">X axis</label><select id="scatterX"></select></div>
+          <div><label class="field-label">Y axis</label><select id="scatterY"></select></div>
+        </div>
+        <label class="field-label">Color by (optional)</label>
+        <select id="scatterColor"></select>
+        <div id="scatterPlot" class="plot tall"></div>
+
+        <div class="grid2">
+          <div>
+            <div class="jarvis-section">Box Plot by Category</div>
+            <label class="field-label">Numeric</label><select id="boxNum"></select>
+            <label class="field-label">Grouped by</label><select id="boxCat"></select>
+            <div id="boxPlot" class="plot"></div>
+          </div>
+          <div>
+            <div class="jarvis-section">Category Composition (Treemap)</div>
+            <label class="field-label">Column</label><select id="treeCat"></select>
+            <div id="treePlot" class="plot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="tab-insights">
+        <div class="jarvis-section">Reverse-Engineered Insights</div>
+        <button class="btn primary" id="genInsightsBtn" style="width:auto; padding:10px 22px;">⚡ Generate Insights</button>
+        <div id="insightsStatus"></div>
+        <div id="insightsOutput" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="tabpanel" id="tab-ask">
+        <div class="jarvis-section">Ask JARVIS a question about your data</div>
+        <p class="small-note">JARVIS reads a statistical summary of your data and answers — with a live chart when one fits.</p>
+        <textarea class="qbox" id="questionBox" rows="2" placeholder="e.g. Which column correlates most with X?"></textarea>
+        <button class="btn primary" id="askBtn" style="width:auto; padding:10px 22px; margin-top:8px;">Run Agent</button>
+        <div id="askStatus"></div>
+        <div id="askAnswer" class="glass-panel hidden" style="margin-top:12px;"></div>
+        <div id="askChart" class="plot tall hidden" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="tabpanel" id="tab-anomalies">
+        <div class="jarvis-section">Anomaly Detection (Statistical Outlier Score)</div>
+        <div id="anomalyStatus"></div>
+        <div id="anomalyPlot" class="plot"></div>
+        <div class="table-scroll glass-panel" id="anomalyTable"></div>
+      </div>
+
+      <div class="tabpanel" id="tab-export">
+        <div class="jarvis-section">Export PDF Report</div>
+        <button class="btn primary" id="buildPdfBtn" style="width:auto; padding:10px 22px;">Build PDF Report</button>
+        <div id="exportStatus"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+/* ============================================================
+   JARVIS AI - client-side data engine + Claude-powered agent
+   ============================================================ */
+
+const ACCENT_PRESETS = {
+  "Cyan Pulse": "#00F0FF",
+  "Ultraviolet": "#B026FF",
+  "Magenta Pop": "#FF2E9F",
+  "Solar Gold": "#FFD400",
+  "Emerald Volt": "#39FF6A",
+};
+const BASE_PALETTE = ["#00F0FF","#B026FF","#FF2E9F","#FFD400","#39FF6A","#FF6B35","#4D7CFF","#FF3EC9"];
+
+let state = {
+  rawRows: [], rows: [], numericCols: [], categoricalCols: [], allCols: [],
+  fileName: "", fileSize: 0,
+  catFilterSelections: {}, numFilterRanges: {},
+  accent: ACCENT_PRESETS["Cyan Pulse"],
+  sample: null, downloads: null,
+  chatHistory: [],
+  previewSearchTerm: "", previewSort: {col:null, dir:1},
+};
+
+function palette(){ return [state.accent, ...BASE_PALETTE.filter(c => c.toLowerCase() !== state.accent.toLowerCase())]; }
+function plotlyLayoutBase(){
+  return { paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)", font:{color:"#E8ECF4"}, margin:{t:20,l:40,r:20,b:40} };
+}
+function applyAccentToDom(){
+  const p = palette();
+  document.documentElement.style.setProperty("--accent", p[0]);
+  document.documentElement.style.setProperty("--accent2", p[1]);
+  document.documentElement.style.setProperty("--accent3", p[2]);
+}
+
+/* ---------------- init capabilities ---------------- */
+async function initCapabilities(){
+  try { state.sample = window.claude ? await window.claude.use("sample") : null; } catch(e){ state.sample = null; }
+  try { state.downloads = window.claude ? await window.claude.use("downloads") : null; } catch(e){ state.downloads = null; }
+}
+
+/* ---------------- theme ---------------- */
+function setupThemePicker(){
+  const sel = document.getElementById("accentSelect");
+  Object.keys(ACCENT_PRESETS).forEach(label => {
+    const opt = document.createElement("option");
+    opt.value = ACCENT_PRESETS[label]; opt.textContent = label;
+    sel.appendChild(opt);
+  });
+  sel.value = state.accent;
+  applyAccentToDom();
+  sel.addEventListener("change", () => {
+    state.accent = sel.value;
+    applyAccentToDom();
+    if (state.rows.length) renderAll();
+  });
+}
+
+/* ---------------- CSV parsing + typing ---------------- */
+function detectColumnTypes(rows){
+  if (!rows.length) return {numeric:[], categorical:[], all:[]};
+  const cols = Object.keys(rows[0]);
+  const numeric = [], categorical = [];
+  cols.forEach(c => {
+    let numCount = 0, total = 0;
+    for (let i=0;i<Math.min(rows.length,100);i++){
+      const v = rows[i][c];
+      if (v === null || v === undefined || v === "") continue;
+      total++;
+      if (typeof v === "number" && !Number.isNaN(v)) numCount++;
+    }
+    if (total > 0 && numCount/total >= 0.7) numeric.push(c); else categorical.push(c);
+  });
+  return {numeric, categorical, all: cols};
+}
+
+function handleCsvUpload(file){
+  Papa.parse(file, {
+    header:true, dynamicTyping:true, skipEmptyLines:true,
+    complete: (res) => loadDataset(res.data, file.name, file.size),
+    error: (err) => { alert("Could not parse CSV: " + err.message); }
+  });
+}
+
+function loadDataset(rows, fileName, fileSizeBytes){
+  state.rawRows = rows;
+  state.fileName = fileName; state.fileSize = fileSizeBytes;
+  const types = detectColumnTypes(state.rawRows);
+  state.numericCols = types.numeric; state.categoricalCols = types.categorical; state.allCols = types.all;
+  state.catFilterSelections = {}; state.numFilterRanges = {};
+  state.rows = state.rawRows.slice();
+  state.previewSearchTerm = ""; state.previewSort = {col:null, dir:1};
+  document.getElementById("emptyState").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("filtersSection").classList.remove("hidden");
+  renderDatasetInfo();
+  buildFilterControls();
+  populateAllSelects();
+  renderAll();
+}
+
+/* ---------------- sample datasets ---------------- */
+function mulberry32(seed){ return function(){ let t = seed += 0x6D2B79F5; t = Math.imul(t ^ t>>>15, t | 1); t ^= t + Math.imul(t ^ t>>>7, t | 61); return ((t ^ t>>>14) >>> 0) / 4294967296; }; }
+
+function generateSalesSample(){
+  const rand = mulberry32(42);
+  const regions = ["North","South","East","West"];
+  const products = ["Widget A","Widget B","Widget C","Gadget X","Gadget Y"];
+  const rows = [];
+  for (let i=0;i<250;i++){
+    const region = regions[Math.floor(rand()*regions.length)];
+    const product = products[Math.floor(rand()*products.length)];
+    const unitsSold = Math.round(20 + rand()*180);
+    const unitPrice = Math.round((10 + rand()*90)*100)/100;
+    const revenue = Math.round(unitsSold*unitPrice*100)/100;
+    const satisfaction = Math.round((2.5 + rand()*2.5)*10)/10;
+    const month = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][Math.floor(rand()*12)];
+    rows.push({ month, region, product, units_sold: unitsSold, unit_price: unitPrice, revenue, customer_satisfaction: satisfaction });
+  }
+  // sprinkle a few nulls + a couple of extreme outliers, like real data
+  for (let i=0;i<8;i++) rows[Math.floor(rand()*rows.length)].customer_satisfaction = null;
+  rows[3].revenue = 25000; rows[17].revenue = 21000;
+  return rows;
+}
+
+function generateHrSample(){
+  const rand = mulberry32(7);
+  const depts = ["Engineering","Sales","Marketing","Support","HR"];
+  const rows = [];
+  for (let i=0;i<220;i++){
+    const dept = depts[Math.floor(rand()*depts.length)];
+    const age = Math.round(22 + rand()*40);
+    const salary = Math.round((35000 + rand()*95000)/100)*100;
+    const perf = Math.round((1 + rand()*4)*10)/10;
+    const tenure = Math.round(rand()*15*10)/10;
+    const attrition = rand() < 0.15 ? "Yes" : "No";
+    rows.push({ employee_id: 1000+i, department: dept, age, tenure_years: tenure, salary, performance_score: perf, attrition });
+  }
+  rows[9].salary = 350000; rows[40].salary = 310000;
+  for (let i=0;i<6;i++) rows[Math.floor(rand()*rows.length)].performance_score = null;
+  return rows;
+}
+
+function setupDropzoneAndSamples(){
+  const dz = document.getElementById("dropzone");
+  const heroInput = document.getElementById("csvInputHero");
+  dz.addEventListener("click", () => heroInput.click());
+  heroInput.addEventListener("change", (e) => { if (e.target.files[0]) handleCsvUpload(e.target.files[0]); });
+  ["dragenter","dragover"].forEach(evt => dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.add("dragover"); }));
+  ["dragleave","drop"].forEach(evt => dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.remove("dragover"); }));
+  dz.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) handleCsvUpload(f); });
+
+  document.getElementById("loadSalesSample").addEventListener("click", () => loadDataset(generateSalesSample(), "sample_sales_data.csv", 0));
+  document.getElementById("loadHrSample").addEventListener("click", () => loadDataset(generateHrSample(), "sample_hr_data.csv", 0));
+}
+
+function renderDatasetInfo(){
+  const sizeLabel = state.fileSize > 0 ? `${(state.fileSize/1024).toFixed(1)} KB` : "Sample dataset";
+  document.getElementById("datasetInfo").innerHTML =
+    `<div class="sidebar-panel">📄 <b>${escapeHtml(state.fileName)}</b><br>
+     💾 ${sizeLabel} &nbsp;|&nbsp; 📐 ${state.rawRows.length.toLocaleString()} × ${state.allCols.length}</div>`;
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+/* ---------------- filters ---------------- */
+function buildFilterControls(){
+  const catWrap = document.getElementById("catFilters"); catWrap.innerHTML = "";
+  state.categoricalCols.slice(0,5).forEach(c => {
+    const options = Array.from(new Set(state.rawRows.map(r => r[c]).filter(v => v !== null && v !== undefined && v !== ""))).map(String).sort();
+    if (options.length < 2 || options.length > 50) return;
+    state.catFilterSelections[c] = new Set(options);
+    const box = document.createElement("div");
+    box.innerHTML = `<label class="field-label">${escapeHtml(c)}</label>`;
+    const list = document.createElement("div"); list.className = "checklist";
+    options.forEach(opt => {
+      const id = `cf_${c}_${opt}`.replace(/[^a-zA-Z0-9_]/g,"_");
+      const lab = document.createElement("label");
+      lab.innerHTML = `<input type="checkbox" id="${id}" checked> ${escapeHtml(opt)}`;
+      list.appendChild(lab);
+      lab.querySelector("input").addEventListener("change", (e) => {
+        if (e.target.checked) state.catFilterSelections[c].add(opt); else state.catFilterSelections[c].delete(opt);
+        applyFilters(); renderAll();
+      });
+    });
+    box.appendChild(list); catWrap.appendChild(box);
+  });
+
+  const numWrap = document.getElementById("numFilters"); numWrap.innerHTML = "";
+  state.numericCols.slice(0,5).forEach(c => {
+    const vals = state.rawRows.map(r => r[c]).filter(v => typeof v === "number" && !Number.isNaN(v));
+    if (!vals.length) return;
+    const min = Math.min(...vals), max = Math.max(...vals);
+    if (min >= max) return;
+    state.numFilterRanges[c] = [min, max];
+    const box = document.createElement("div");
+    box.innerHTML = `<label class="field-label">${escapeHtml(c)} (${min.toFixed(2)} to ${max.toFixed(2)})</label>
+      <div class="range-row">
+        <input type="number" step="any" id="rmin_${c}" value="${min}">
+        <span>–</span>
+        <input type="number" step="any" id="rmax_${c}" value="${max}">
+      </div>`;
+    numWrap.appendChild(box);
+  });
+}
+
+function applyFilters(){
+  const rangeInputsExist = state.numericCols.slice(0,5).some(c => document.getElementById(`rmin_${c}`));
+  if (rangeInputsExist){
+    state.numericCols.slice(0,5).forEach(c => {
+      const minEl = document.getElementById(`rmin_${c}`), maxEl = document.getElementById(`rmax_${c}`);
+      if (minEl && maxEl) state.numFilterRanges[c] = [parseFloat(minEl.value), parseFloat(maxEl.value)];
+    });
+  }
+  state.rows = state.rawRows.filter(r => {
+    for (const c in state.catFilterSelections){
+      const sel = state.catFilterSelections[c];
+      const v = r[c];
+      if (v === null || v === undefined || v === "") continue;
+      if (!sel.has(String(v))) return false;
+    }
+    for (const c in state.numFilterRanges){
+      const [lo, hi] = state.numFilterRanges[c];
+      const v = r[c];
+      if (typeof v !== "number" || Number.isNaN(v)) continue;
+      if (v < lo || v > hi) return false;
+    }
+    return true;
+  });
+}
+
+/* ---------------- stats engine ---------------- */
+function computeProfile(rows){
+  const total = rows.length * state.allCols.length;
+  let missing = 0;
+  rows.forEach(r => state.allCols.forEach(c => {
+    const v = r[c];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && Number.isNaN(v))) missing++;
+  }));
+  const missingPct = total ? Math.round((missing/total)*10000)/100 : 0;
+
+  const seen = new Map(); let dup = 0;
+  rows.forEach(r => {
+    const key = JSON.stringify(state.allCols.map(c => r[c]));
+    const n = (seen.get(key) || 0) + 1; seen.set(key, n);
+    if (n > 1) dup++;
+  });
+
+  return { rows: rows.length, columns: state.allCols.length, numericCols: state.numericCols, categoricalCols: state.categoricalCols, missingPct, duplicateRows: dup };
+}
+
+function pearson(xs, ys){
+  const pairs = []; for (let i=0;i<xs.length;i++){ if (typeof xs[i]==="number" && typeof ys[i]==="number" && !Number.isNaN(xs[i]) && !Number.isNaN(ys[i])) pairs.push([xs[i],ys[i]]); }
+  const n = pairs.length; if (n < 2) return null;
+  const mx = pairs.reduce((a,p)=>a+p[0],0)/n, my = pairs.reduce((a,p)=>a+p[1],0)/n;
+  let num=0, dx=0, dy=0;
+  pairs.forEach(([x,y]) => { num += (x-mx)*(y-my); dx += (x-mx)**2; dy += (y-my)**2; });
+  if (dx===0 || dy===0) return null;
+  return num / Math.sqrt(dx*dy);
+}
+
+function correlationMatrix(rows){
+  const cols = state.numericCols;
+  const matrix = cols.map(c1 => cols.map(c2 => {
+    const r = pearson(rows.map(r=>r[c1]), rows.map(r=>r[c2]));
+    return r===null ? null : Math.round(r*1000)/1000;
+  }));
+  return {cols, matrix};
+}
+
+function topCorrelations(rows, n=5){
+  const {cols, matrix} = correlationMatrix(rows);
+  const pairs = [];
+  for (let i=0;i<cols.length;i++) for (let j=i+1;j<cols.length;j++){
+    const v = matrix[i][j];
+    if (v!==null) pairs.push({a:cols[i], b:cols[j], corr:v});
+  }
+  pairs.sort((a,b)=>Math.abs(b.corr)-Math.abs(a.corr));
+  return pairs.slice(0,n);
+}
+
+function trendSummary(rows){
+  return state.numericCols.map(c => {
+    const vals = rows.map(r=>r[c]).filter(v=>typeof v==="number" && !Number.isNaN(v));
+    if (!vals.length) return null;
+    const n = vals.length;
+    const mean = vals.reduce((a,b)=>a+b,0)/n;
+    const variance = vals.reduce((a,b)=>a+(b-mean)**2,0)/n;
+    const std = Math.sqrt(variance);
+    const skew = std>0 ? (vals.reduce((a,b)=>a+((b-mean)/std)**3,0)/n) : 0;
+    return { column:c, mean:round3(mean), std:round3(std), min:round3(Math.min(...vals)), max:round3(Math.max(...vals)), skew:round3(skew) };
+  }).filter(Boolean);
+}
+function round3(x){ return Math.round(x*1000)/1000; }
+
+function computeOutliers(rows, contamination=0.03){
+  if (rows.length < 10 || state.numericCols.length < 1) return {indices:new Set(), scores:[]};
+  const stats = state.numericCols.map(c => {
+    const vals = rows.map(r=>r[c]).filter(v=>typeof v==="number" && !Number.isNaN(v));
+    const n = vals.length || 1;
+    const mean = vals.reduce((a,b)=>a+b,0)/n;
+    const std = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/n) || 1;
+    return {c, mean, std};
+  });
+  const scored = rows.map((r,i) => {
+    let sumsq = 0, any=false;
+    stats.forEach(({c,mean,std}) => { const v=r[c]; if (typeof v==="number" && !Number.isNaN(v)){ sumsq += ((v-mean)/std)**2; any=true; } });
+    return {i, score: any ? Math.sqrt(sumsq) : 0};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  const k = Math.max(1, Math.round(rows.length*contamination));
+  const flagged = scored.slice(0,k);
+  return {indices: new Set(flagged.map(f=>f.i)), scores: scored };
+}
+
+function computeHealthScore(profile, duplicatePct, outlierPct){
+  const missingPenalty = Math.min(profile.missingPct, 40);
+  const dupPenalty = Math.min(duplicatePct, 30);
+  const outlierPenalty = Math.min(outlierPct*2, 20);
+  const score = Math.max(0, Math.round(100 - missingPenalty - dupPenalty - outlierPenalty));
+  let verdict = "Poor";
+  if (score>=85) verdict="Excellent"; else if (score>=65) verdict="Good"; else if (score>=40) verdict="Needs cleanup";
+  return {score, verdict, missingPct:profile.missingPct, duplicatePct:round3(duplicatePct), outlierPct:round3(outlierPct)};
+}
+
+const VERDICT_COLOR = {"Excellent":"#39FF6A","Good":"#00F0FF","Needs cleanup":"#FFD400","Poor":"#FF2E9F"};
+
+/* ---------------- main render pipeline ---------------- */
+function populateAllSelects(){
+  const fill = (id, cols, allowNone) => {
+    const el = document.getElementById(id); el.innerHTML = "";
+    if (allowNone){ const o=document.createElement("option"); o.value=""; o.textContent="None"; el.appendChild(o); }
+    cols.forEach(c => { const o=document.createElement("option"); o.value=c; o.textContent=c; el.appendChild(o); });
+  };
+  fill("distColSelect", state.numericCols, false);
+  fill("catColSelect", state.categoricalCols, false);
+  fill("scatterX", state.numericCols, false);
+  fill("scatterY", state.numericCols, false);
+  if (state.numericCols.length>1) document.getElementById("scatterY").selectedIndex = 1;
+  fill("scatterColor", state.categoricalCols, true);
+  fill("boxNum", state.numericCols, false);
+  fill("boxCat", state.categoricalCols, false);
+  fill("treeCat", state.categoricalCols, false);
+
+  ["distColSelect","catColSelect","scatterX","scatterY","scatterColor","boxNum","boxCat","treeCat"]
+    .forEach(id => document.getElementById(id).addEventListener("change", renderAll));
+}
+
+function renderAll(){
+  const rows = state.rows;
+  const profile = computeProfile(rows);
+  const duplicatePct = profile.rows ? (profile.duplicateRows/profile.rows*100) : 0;
+  const outliers = computeOutliers(rows);
+  const outlierPct = profile.rows ? (outliers.indices.size/profile.rows*100) : 0;
+  const health = computeHealthScore(profile, duplicatePct, outlierPct);
+
+  state._profile = profile; state._health = health; state._outliers = outliers;
+
+  document.getElementById("filterBannerWrap").innerHTML = (rows.length < state.rawRows.length)
+    ? `<div class="filter-banner">🔎 Showing ${rows.length.toLocaleString()} of ${state.rawRows.length.toLocaleString()} rows after filters</div>` : "";
+
+  renderKPIs(profile, health, outliers);
+  renderMetricRow(profile);
+  renderDtypesBreakdown(rows, profile);
+  renderOverview(rows, profile);
+  renderHealth(rows, profile, health);
+  renderDeepDive(rows);
+  renderAnomalies(rows, outliers);
+}
+
+function estimateMemoryBytes(rows){
+  // rough client-side estimate: JSON-stringify a sample and extrapolate
+  if (!rows.length) return 0;
+  const sampleN = Math.min(50, rows.length);
+  let sampleBytes = 0;
+  for (let i=0;i<sampleN;i++) sampleBytes += JSON.stringify(rows[i]).length;
+  return Math.round(sampleBytes/sampleN * rows.length);
+}
+function formatBytes(n){
+  if (n < 1024) return n + " B";
+  if (n < 1024*1024) return (n/1024).toFixed(1) + " KB";
+  return (n/(1024*1024)).toFixed(2) + " MB";
+}
+
+function animateValue(el, endText, duration=700){
+  const match = String(endText).match(/^(-?[\d,]+(\.\d+)?)(.*)$/);
+  if (!match){ el.textContent = endText; return; }
+  const endNum = parseFloat(match[1].replace(/,/g,""));
+  const suffix = match[3] || "";
+  const decimals = match[2] ? match[2].length - 1 : 0;
+  const useCommas = match[1].includes(",");
+  const start = performance.now();
+  function tick(now){
+    const p = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const current = endNum * eased;
+    const formatted = decimals ? current.toFixed(decimals) : Math.round(current).toLocaleString(useCommas ? undefined : "en-US", {useGrouping: useCommas});
+    el.textContent = formatted + suffix;
+    if (p < 1) requestAnimationFrame(tick); else el.textContent = endText;
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderMetricRow(profile){
+  const missingCells = Math.round(profile.missingPct/100 * profile.rows * profile.columns);
+  const mem = estimateMemoryBytes(state.rows);
+  const items = [
+    ["Total Rows", profile.rows.toLocaleString()],
+    ["Total Columns", profile.columns],
+    ["Est. Memory Usage", formatBytes(mem)],
+    ["Missing Values", missingCells.toLocaleString()],
+  ];
+  document.getElementById("metricRow").innerHTML = items.map(([label,val]) => `
+    <div class="metric-card"><div class="m-label">${label}</div><div class="m-value">${val}</div></div>`).join("");
+  document.querySelectorAll("#metricRow .m-value").forEach(el => animateValue(el, el.textContent));
+}
+
+function renderDtypesBreakdown(rows, profile){
+  const rowsHtml = state.allCols.map(c => {
+    const isNumeric = state.numericCols.includes(c);
+    const missing = rows.filter(r => { const v=r[c]; return v===null||v===undefined||v===""; }).length;
+    const missingPct = rows.length ? Math.round((missing/rows.length)*10000)/100 : 0;
+    return `<tr><td>${escapeHtml(c)}</td><td>${isNumeric ? "🔢 Numeric" : "🏷️ Categorical"}</td><td>${missingPct}%</td></tr>`;
+  }).join("");
+  document.getElementById("dtypesTable").innerHTML =
+    `<table class="dframe"><thead><tr><th>Column</th><th>Detected Type</th><th>Missing %</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+}
+
+function renderKPIs(profile, health, outliers){
+  const items = [
+    ["📐","Rows", profile.rows.toLocaleString(), "#00F0FF", false],
+    ["🧬","Columns", profile.columns, "#B026FF", false],
+    ["🔢","Numeric Cols", profile.numericCols.length, "#4D7CFF", false],
+    ["🏷️","Categorical Cols", profile.categoricalCols.length, "#FF6B35", false],
+    ["🕳️","Missing %", profile.missingPct + "%", "#FF2E9F", false],
+    ["📎","Duplicates", profile.duplicateRows, "#FFD400", false],
+    ["🚨","Anomalies", outliers.indices.size, "#FF3EC9", false],
+    ["💯","Health Score", health.score, VERDICT_COLOR[health.verdict]||"#00F0FF", true],
+  ];
+  document.getElementById("kpiGrid").innerHTML = items.map(([icon,label,val,color,glow]) => `
+    <div class="kpi-card ${glow ? "pulse-glow" : ""}" style="border-color:${color}55; box-shadow:0 0 18px ${color}30; --glow-color:${color}80;">
+      <div class="kpi-icon">${icon}</div>
+      <div class="kpi-value" style="color:${color};">${val}</div>
+      <div class="kpi-label">${label}</div>
+    </div>`).join("");
+  document.querySelectorAll("#kpiGrid .kpi-value").forEach(el => animateValue(el, el.textContent));
+}
+
+function renderOverview(rows, profile){
+  renderPreviewTable(rows);
+
+  const {cols, matrix} = correlationMatrix(rows);
+  if (cols.length >= 2){
+    Plotly.newPlot("corrPlot", [{ z: matrix, x: cols, y: cols, type:"heatmap", colorscale:"Portland", texttemplate:"%{z}" }],
+      {...plotlyLayoutBase()}, {displayModeBar:false, responsive:true});
+  } else {
+    document.getElementById("corrPlot").innerHTML = "<div class='msg warn'>Need at least 2 numeric columns for a correlation heatmap.</div>";
+  }
+
+  Plotly.newPlot("mixPlot", [{ labels:["Numeric","Categorical"], values:[profile.numericCols.length, profile.categoricalCols.length], type:"pie", hole:0.55, marker:{colors:[state.accent, "#FF2E9F"]} }],
+    {...plotlyLayoutBase(), showlegend:true}, {displayModeBar:false, responsive:true});
+
+  const distCol = document.getElementById("distColSelect").value;
+  if (distCol){
+    const vals = rows.map(r=>r[distCol]).filter(v=>typeof v==="number");
+    Plotly.newPlot("distPlot", [{x:vals, type:"histogram", nbinsx:30, marker:{color:state.accent}}], {...plotlyLayoutBase()}, {displayModeBar:false, responsive:true});
+  }
+  const catCol = document.getElementById("catColSelect").value;
+  if (catCol){
+    const counts = {}; rows.forEach(r => { const v=r[catCol]; if (v!==null && v!==undefined && v!=="") counts[v]=(counts[v]||0)+1; });
+    const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    Plotly.newPlot("catPlot", [{x:entries.map(e=>e[0]), y:entries.map(e=>e[1]), type:"bar", marker:{color:palette()}}], {...plotlyLayoutBase()}, {displayModeBar:false, responsive:true});
+  }
+}
+
+function renderPreviewTable(rows){
+  const cols = state.allCols;
+  const term = state.previewSearchTerm.toLowerCase();
+  let filtered = rows;
+  if (term){
+    filtered = rows.filter(r => cols.some(c => String(r[c] ?? "").toLowerCase().includes(term)));
+  }
+  const {col: sortCol, dir} = state.previewSort;
+  if (sortCol){
+    filtered = filtered.slice().sort((a,b) => {
+      const av = a[sortCol], bv = b[sortCol];
+      if (av === bv) return 0;
+      if (av === null || av === undefined || av === "") return 1;
+      if (bv === null || bv === undefined || bv === "") return -1;
+      return (av > bv ? 1 : -1) * dir;
+    });
+  }
+  document.getElementById("previewCount").textContent = `${filtered.length.toLocaleString()} of ${rows.length.toLocaleString()} rows`;
+  const shown = filtered.slice(0,50);
+  let html = "<table class='dframe'><thead><tr>" + cols.map(c => {
+    const arrow = sortCol === c ? (dir===1 ? "▲" : "▼") : "";
+    return `<th class="sortable" data-col="${escapeHtml(c)}">${escapeHtml(c)} <span class="arrow">${arrow}</span></th>`;
+  }).join("") + "</tr></thead><tbody>";
+  shown.forEach(r => { html += "<tr>" + cols.map(c=>`<td>${escapeHtml(r[c] ?? "")}</td>`).join("") + "</tr>"; });
+  html += "</tbody></table>";
+  const container = document.getElementById("previewTable");
+  container.innerHTML = html;
+  container.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const c = th.dataset.col;
+      if (state.previewSort.col === c) state.previewSort.dir *= -1;
+      else state.previewSort = {col:c, dir:1};
+      renderPreviewTable(state.rows);
+    });
+  });
+}
+
+function renderHealth(rows, profile, health){
+  const color = VERDICT_COLOR[health.verdict] || "#00F0FF";
+  Plotly.newPlot("gaugePlot", [{
+    type:"indicator", mode:"gauge+number", value:health.score,
+    number:{suffix:" / 100", font:{color, size:36}},
+    gauge:{ axis:{range:[0,100]}, bar:{color},
+      steps:[{range:[0,40],color:"rgba(255,46,159,0.25)"},{range:[40,65],color:"rgba(255,212,0,0.25)"},{range:[65,85],color:"rgba(0,240,255,0.2)"},{range:[85,100],color:"rgba(57,255,106,0.25)"}] }
+  }], {...plotlyLayoutBase()}, {displayModeBar:false, responsive:true});
+  document.getElementById("verdictLabel").style.color = color;
+  document.getElementById("verdictLabel").textContent = health.verdict;
+
+  Plotly.newPlot("qualityPlot", [{ x:["Missing %","Duplicate %","Outlier %"], y:[health.missingPct, health.duplicatePct, health.outlierPct],
+    type:"bar", marker:{color:["#FF2E9F","#FFD400","#FF6B35"]}, text:[health.missingPct+"%",health.duplicatePct+"%",health.outlierPct+"%"], textposition:"outside" }],
+    {...plotlyLayoutBase()}, {displayModeBar:false, responsive:true});
+
+  const missEntries = state.allCols.map(c => {
+    const missing = rows.filter(r => { const v=r[c]; return v===null||v===undefined||v===""; }).length;
+    return [c, rows.length ? Math.round((missing/rows.length)*10000)/100 : 0];
+  }).filter(e => e[1] > 0).sort((a,b)=>b[1]-a[1]);
+  if (missEntries.length){
+    Plotly.newPlot("missingPlot", [{ y:missEntries.map(e=>e[0]), x:missEntries.map(e=>e[1]), type:"bar", orientation:"h", marker:{color:missEntries.map(e=>e[1]),colorscale:"Sunsetdark"} }],
+      {...plotlyLayoutBase()}, {displayModeBar:false, responsive:true});
+  } else {
+    document.getElementById("missingPlot").innerHTML = "<div class='msg ok'>No missing values in this dataset. 🎉</div>";
+  }
+}
+
+function renderDeepDive(rows){
+  const x = document.getElementById("scatterX").value, y = document.getElementById("scatterY").value, colorBy = document.getElementById("scatterColor").value;
+  if (x && y){
+    if (colorBy){
+      const groups = {};
+      rows.forEach(r => { const g = r[colorBy] ?? "N/A"; (groups[g] = groups[g]||[]).push(r); });
+      const traces = Object.entries(groups).map(([g, grows], idx) => ({
+        x: grows.map(r=>r[x]), y: grows.map(r=>r[y]), mode:"markers", type:"scatter", name:String(g),
+        marker:{color:palette()[idx % palette().length], opacity:0.75, size:6}
+      }));
+      Plotly.newPlot("scatterPlot", traces, {...plotlyLayoutBase(), xaxis:{title:x}, yaxis:{title:y}}, {displayModeBar:false, responsive:true});
+    } else {
+      Plotly.newPlot("scatterPlot", [{x:rows.map(r=>r[x]), y:rows.map(r=>r[y]), mode:"markers", type:"scatter", marker:{color:state.accent, opacity:0.7, size:6}}],
+        {...plotlyLayoutBase(), xaxis:{title:x}, yaxis:{title:y}}, {displayModeBar:false, responsive:true});
+    }
+  }
+
+  const boxNum = document.getElementById("boxNum").value, boxCat = document.getElementById("boxCat").value;
+  if (boxNum && boxCat){
+    const counts = {}; rows.forEach(r=>{ const v=r[boxCat]; if(v!==null&&v!==undefined&&v!=="") counts[v]=(counts[v]||0)+1; });
+    const topCats = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(e=>e[0]);
+    const traces = topCats.map((cat, idx) => ({
+      y: rows.filter(r=>String(r[boxCat])===String(cat)).map(r=>r[boxNum]), type:"box", name:String(cat), marker:{color:palette()[idx%palette().length]}
+    }));
+    Plotly.newPlot("boxPlot", traces, {...plotlyLayoutBase(), showlegend:false}, {displayModeBar:false, responsive:true});
+  }
+
+  const treeCat = document.getElementById("treeCat").value;
+  if (treeCat){
+    const counts = {}; rows.forEach(r=>{ const v=r[treeCat]; if(v!==null&&v!==undefined&&v!=="") counts[v]=(counts[v]||0)+1; });
+    const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,15);
+    Plotly.newPlot("treePlot", [{ type:"treemap", labels:entries.map(e=>e[0]), parents:entries.map(()=>""), values:entries.map(e=>e[1]),
+      marker:{colors:entries.map(e=>e[1]), colorscale:"Plasma"} }], {...plotlyLayoutBase(), margin:{t:10,l:0,r:0,b:0}}, {displayModeBar:false, responsive:true});
+  }
+}
+
+function renderAnomalies(rows, outliers){
+  const statusEl = document.getElementById("anomalyStatus");
+  if (outliers.indices.size === 0){
+    statusEl.innerHTML = "<div class='msg info'>No anomalies detected (or not enough numeric data).</div>";
+    document.getElementById("anomalyPlot").innerHTML = ""; document.getElementById("anomalyTable").innerHTML = "";
+    return;
+  }
+  statusEl.innerHTML = `<div class='msg err'>${outliers.indices.size} anomalous rows flagged out of ${rows.length}.</div>`;
+
+  if (state.numericCols.length >= 2){
+    const [xc, yc] = state.numericCols;
+    const normal = rows.filter((r,i)=>!outliers.indices.has(i));
+    const anom = rows.filter((r,i)=>outliers.indices.has(i));
+    Plotly.newPlot("anomalyPlot", [
+      {x:normal.map(r=>r[xc]), y:normal.map(r=>r[yc]), mode:"markers", type:"scatter", name:"Normal", marker:{color:"#4D7CFF", opacity:0.6, size:6}},
+      {x:anom.map(r=>r[xc]), y:anom.map(r=>r[yc]), mode:"markers", type:"scatter", name:"Anomaly", marker:{color:"#FF2E9F", opacity:0.9, size:8}}
+    ], {...plotlyLayoutBase(), xaxis:{title:xc}, yaxis:{title:yc}}, {displayModeBar:false, responsive:true});
+  }
+
+  const anomRows = rows.filter((r,i)=>outliers.indices.has(i)).slice(0,100);
+  let html = "<table class='dframe'><thead><tr>" + state.allCols.map(c=>`<th>${escapeHtml(c)}</th>`).join("") + "</tr></thead><tbody>";
+  anomRows.forEach(r => { html += "<tr>" + state.allCols.map(c=>`<td>${escapeHtml(r[c] ?? "")}</td>`).join("") + "</tr>"; });
+  html += "</tbody></table>";
+  document.getElementById("anomalyTable").innerHTML = html;
+}
+
+/* ---------------- AI: insights + ask ---------------- */
+function buildDataSummaryText(){
+  const rows = state.rows;
+  const profile = state._profile;
+  const corrs = topCorrelations(rows, 5);
+  const trends = trendSummary(rows).slice(0,10);
+  const outliers = state._outliers;
+  let text = `Rows: ${profile.rows}, Columns: ${profile.columns}\n`;
+  text += `Numeric columns: ${JSON.stringify(profile.numericCols)}\n`;
+  text += `Categorical columns: ${JSON.stringify(profile.categoricalCols)}\n`;
+  text += `Missing data: ${profile.missingPct}% | Duplicate rows: ${profile.duplicateRows}\n\nTop correlations:\n`;
+  corrs.forEach(c => text += `  ${c.a} vs ${c.b}: r=${c.corr}\n`);
+  text += "\nColumn distributions:\n";
+  trends.forEach(t => text += `  ${t.column}: mean=${t.mean}, std=${t.std}, range=[${t.min}, ${t.max}], skew=${t.skew}\n`);
+  text += `\nAnomalous rows detected: ${outliers.indices.size}\n`;
+  return text;
+}
+
+function renderSteps(el, steps, activeIndex){
+  el.innerHTML = "<ul class='step-list'>" + steps.map((s,i) => {
+    const cls = i < activeIndex ? "done" : (i === activeIndex ? "active" : "");
+    const chk = i < activeIndex ? "✅" : (i === activeIndex ? "⏳" : "▫️");
+    return `<li class="${cls}"><span class="chk">${chk}</span> ${escapeHtml(s)}</li>`;
+  }).join("") + "</ul>";
+}
+
+async function generateInsights(){
+  const statusEl = document.getElementById("insightsStatus"), outEl = document.getElementById("insightsOutput");
+  if (!state.sample){ statusEl.innerHTML = "<div class='msg err'>AI features aren't available in this view.</div>"; return; }
+  const steps = ["Reading statistical profile...", "Building prompt for Claude...", "Asking Claude to reverse-engineer insights...", "Rendering insight cards..."];
+  outEl.innerHTML = "";
+  renderSteps(statusEl, steps, 0);
+  await new Promise(r => setTimeout(r, 150));
+  renderSteps(statusEl, steps, 1);
+  const summary = buildDataSummaryText();
+  const prompt = `You are JARVIS AI, an autonomous data analyst. You are given a statistical summary of a dataset. Reverse-engineer what is really happening in the data: name the strongest relationships, call out anything surprising or risky (outliers, skew, missing data), and suggest one concrete next step. Write 4-6 short bullet points, each starting with "- ". No preamble, no markdown headers.\n\nDataset summary:\n\n${summary}`;
+  renderSteps(statusEl, steps, 2);
+  try {
+    const {text} = await state.sample(prompt, {modelTier:"default", onText:({text}) => renderInsightBullets(text, outEl)});
+    renderSteps(statusEl, steps, 3);
+    renderInsightBullets(text, outEl);
+    statusEl.innerHTML += `<details style="margin-top:6px;"><summary class="small-note">🔍 Show prompt sent to Claude</summary><code class="codebox">${escapeHtml(prompt)}</code></details>`;
+  } catch(e){
+    statusEl.innerHTML = `<div class='msg err'>${e.code === "not_granted" ? "Permission to use Claude was declined." : "Something went wrong: " + (e.message||e.code)}</div>`;
+  }
+}
+function renderInsightBullets(text, outEl){
+  const bullets = text.split("\n").map(b=>b.replace(/^[-*]\s*/,"").trim()).filter(Boolean);
+  const icons = ["🔗","📈","⚠️","🔍","💡","🎯"];
+  outEl.innerHTML = bullets.map((b,i)=>`<div class="insight-card">${icons[i%icons.length]} &nbsp; ${escapeHtml(b)}</div>`).join("");
+}
+
+async function askJarvis(){
+  const q = document.getElementById("questionBox").value.trim();
+  const statusEl = document.getElementById("askStatus"), ansEl = document.getElementById("askAnswer"), chartEl = document.getElementById("askChart");
+  if (!state.sample){ statusEl.innerHTML = "<div class='msg err'>AI features aren't available in this view.</div>"; return; }
+  if (!q){ statusEl.innerHTML = "<div class='msg warn'>Type a question first.</div>"; return; }
+  const steps = ["Reading dataset schema...", "Preparing column statistics...", "Asking Claude to plan the analysis...", "Rendering answer & chart..."];
+  ansEl.classList.add("hidden"); chartEl.classList.add("hidden");
+  renderSteps(statusEl, steps, 0);
+  await new Promise(r => setTimeout(r, 120));
+  renderSteps(statusEl, steps, 1);
+
+  const trends = trendSummary(state.rows);
+  const catTop = state.categoricalCols.map(c => {
+    const counts = {}; state.rows.forEach(r=>{ const v=r[c]; if(v!==null&&v!==undefined&&v!=="") counts[v]=(counts[v]||0)+1; });
+    return {column:c, top: Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0])};
+  });
+  const schema = `Numeric columns with stats: ${JSON.stringify(trends)}\nCategorical columns with top values: ${JSON.stringify(catTop)}\nRow count: ${state.rows.length}`;
+  const prompt = `You are JARVIS AI's analysis agent. Given this dataset schema and stats:\n\n${schema}\n\nQuestion: "${q}"\n\n` +
+    `Reply with ONLY a JSON object: {"answer": "<plain-English answer, 1-3 sentences>", "chartType": "bar"|"scatter"|"histogram"|"none", "xColumn": "<column name or null>", "yColumn": "<column name or null, for scatter>", "groupByColumn": "<categorical column or null, for bar>", "aggregate": "mean"|"sum"|"count"|"none"}. Only use column names exactly as given above. Use chartType "none" if no chart fits.`;
+  renderSteps(statusEl, steps, 2);
+  try {
+    const plan = await state.sample.json(prompt, {modelTier:"default"});
+    renderSteps(statusEl, steps, 3);
+    ansEl.classList.remove("hidden");
+    ansEl.textContent = plan.answer || "(no answer text)";
+    renderAskChart(plan);
+    statusEl.innerHTML += `<details style="margin-top:6px;"><summary class="small-note">🔍 Show query plan (Claude's structured answer)</summary><code class="codebox">${escapeHtml(JSON.stringify(plan, null, 2))}</code></details>`;
+  } catch(e){
+    statusEl.innerHTML = `<div class='msg err'>${e.code === "not_granted" ? "Permission to use Claude was declined." : "Something went wrong: " + (e.message||e.code)}</div>`;
+  }
+}
+
+function renderAskChart(plan){
+  const chartEl = document.getElementById("askChart");
+  const rows = state.rows;
+  if (!plan || plan.chartType === "none" || !plan.xColumn) { chartEl.classList.add("hidden"); return; }
+  chartEl.classList.remove("hidden");
+  try {
+    if (plan.chartType === "histogram"){
+      Plotly.newPlot(chartEl, [{x: rows.map(r=>r[plan.xColumn]), type:"histogram", marker:{color:state.accent}}], plotlyLayoutBase(), {displayModeBar:false, responsive:true});
+    } else if (plan.chartType === "scatter" && plan.yColumn){
+      Plotly.newPlot(chartEl, [{x: rows.map(r=>r[plan.xColumn]), y: rows.map(r=>r[plan.yColumn]), mode:"markers", type:"scatter", marker:{color:state.accent}}],
+        {...plotlyLayoutBase(), xaxis:{title:plan.xColumn}, yaxis:{title:plan.yColumn}}, {displayModeBar:false, responsive:true});
+    } else if (plan.chartType === "bar"){
+      const groupCol = plan.groupByColumn || plan.xColumn;
+      const valCol = plan.yColumn;
+      const groups = {};
+      rows.forEach(r => { const g = r[groupCol]; if (g===null||g===undefined||g==="") return; (groups[g]=groups[g]||[]).push(r); });
+      let entries;
+      if (valCol && plan.aggregate && plan.aggregate !== "count"){
+        entries = Object.entries(groups).map(([g,grows]) => {
+          const vals = grows.map(r=>r[valCol]).filter(v=>typeof v==="number");
+          const agg = plan.aggregate === "mean" ? (vals.reduce((a,b)=>a+b,0)/(vals.length||1)) : vals.reduce((a,b)=>a+b,0);
+          return [g, agg];
+        });
+      } else {
+        entries = Object.entries(groups).map(([g,grows]) => [g, grows.length]);
+      }
+      entries.sort((a,b)=>b[1]-a[1]); entries = entries.slice(0,15);
+      Plotly.newPlot(chartEl, [{x:entries.map(e=>e[0]), y:entries.map(e=>e[1]), type:"bar", marker:{color:palette()}}], plotlyLayoutBase(), {displayModeBar:false, responsive:true});
+    } else { chartEl.classList.add("hidden"); }
+  } catch(e){ chartEl.classList.add("hidden"); }
+}
+
+/* ---------------- export ---------------- */
+async function buildPdfReport(){
+  const statusEl = document.getElementById("exportStatus");
+  if (!state.downloads){ statusEl.innerHTML = "<div class='msg err'>Downloads aren't available in this view.</div>"; return; }
+  statusEl.innerHTML = "<div class='msg info'>Building report...</div>";
+  try {
+    const profile = state._profile, health = state._health;
+    const corrs = topCorrelations(state.rows, 5);
+    const insightsText = document.getElementById("insightsOutput").innerText || "Generate insights in the AI Insights tab first for a fuller report.";
+    let blob, filename;
+    if (window.jspdf && window.jspdf.jsPDF){
+      const {jsPDF} = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFillColor(10,14,24); doc.rect(0,0,220,297,"F");
+      doc.setTextColor(0,200,255); doc.setFontSize(20); doc.text("JARVIS AI - Analysis Report", 14, 18);
+      doc.setTextColor(150,150,160); doc.setFontSize(9); doc.text(new Date().toString(), 14, 25);
+      let y = 38;
+      const section = (title) => { doc.setTextColor(0,200,255); doc.setFontSize(13); doc.text(title, 14, y); y+=4; doc.setDrawColor(0,200,255); doc.line(14,y,60,y); y+=7; doc.setTextColor(220,224,235); doc.setFontSize(10); };
+      const body = (text) => { const lines = doc.splitTextToSize(text, 180); doc.text(lines, 14, y); y += lines.length*5 + 6; };
+
+      section("Health Score"); body(`${health.score}/100 - ${health.verdict}`);
+      section("Dataset Overview");
+      body(`Rows: ${profile.rows} | Columns: ${profile.columns}\nMissing: ${profile.missingPct}% | Duplicates: ${profile.duplicateRows}\nNumeric: ${profile.numericCols.join(", ")||"None"}\nCategorical: ${profile.categoricalCols.join(", ")||"None"}`);
+      section("AI-Generated Insights"); body(insightsText);
+      section("Top Correlations"); body(corrs.length ? corrs.map(c=>`- ${c.a} vs ${c.b}: r=${c.corr}`).join("\n") : "Not enough numeric columns.");
+      section("Anomaly Detection"); body(`${state._outliers.indices.size} anomalous rows flagged.`);
+
+      blob = doc.output("blob"); filename = "jarvis_ai_report.pdf";
+    } else {
+      const text = `JARVIS AI - Analysis Report\n\nHealth Score: ${health.score}/100 (${health.verdict})\n\nRows: ${profile.rows}, Columns: ${profile.columns}\nMissing: ${profile.missingPct}%, Duplicates: ${profile.duplicateRows}\n\nInsights:\n${insightsText}\n\nTop Correlations:\n${corrs.map(c=>`- ${c.a} vs ${c.b}: r=${c.corr}`).join("\n")}\n\nAnomalies: ${state._outliers.indices.size} rows flagged.`;
+      blob = new Blob([text], {type:"text/markdown"}); filename = "jarvis_ai_report.md";
+    }
+    const result = await state.downloads.save({filename, data: blob});
+    statusEl.innerHTML = `<div class='msg ok'>Report ${result.status}.</div>`;
+  } catch(e){
+    statusEl.innerHTML = `<div class='msg err'>${e.code === "declined" ? "Save was declined." : "Could not build report: " + (e.message||e.code)}</div>`;
+  }
+}
+
+async function downloadFilteredCsv(){
+  if (!state.downloads) return;
+  const csv = Papa.unparse(state.rows);
+  try { await state.downloads.save({filename:"jarvis_filtered_data.csv", data: csv}); } catch(e){}
+}
+
+/* ---------------- quick insights (no LLM, instant) ---------------- */
+function quickSummaryStatistics(){
+  const rows = state.rows;
+  const stats = state.numericCols.map(c => {
+    const vals = rows.map(r=>r[c]).filter(v=>typeof v==="number" && !Number.isNaN(v)).sort((a,b)=>a-b);
+    const n = vals.length;
+    if (!n) return null;
+    const mean = vals.reduce((a,b)=>a+b,0)/n;
+    const std = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/n);
+    const pct = (p) => vals[Math.min(n-1, Math.floor(p*n))];
+    return {col:c, count:n, mean:round3(mean), std:round3(std), min:round3(vals[0]), q25:round3(pct(0.25)), median:round3(pct(0.5)), q75:round3(pct(0.75)), max:round3(vals[n-1])};
+  }).filter(Boolean);
+  if (!stats.length){ return "<div class='msg warn'>No numeric columns to summarize.</div>"; }
+  let html = "<div class='table-scroll glass-panel'><table class='dframe'><thead><tr><th>Column</th><th>Count</th><th>Mean</th><th>Std</th><th>Min</th><th>25%</th><th>Median</th><th>75%</th><th>Max</th></tr></thead><tbody>";
+  stats.forEach(s => { html += `<tr><td>${escapeHtml(s.col)}</td><td>${s.count}</td><td>${s.mean}</td><td>${s.std}</td><td>${s.min}</td><td>${s.q25}</td><td>${s.median}</td><td>${s.q75}</td><td>${s.max}</td></tr>`; });
+  html += "</tbody></table></div>";
+  return html;
+}
+
+function quickOutlierSummary(){
+  const outliers = state._outliers;
+  if (!outliers || outliers.indices.size === 0) return "<div class='msg info'>No anomalies detected (or not enough numeric data). See the Anomalies tab for details.</div>";
+  return `<div class="msg err">${outliers.indices.size} anomalous rows flagged out of ${state.rows.length} (top by outlier score). Open the <b>🚨 Anomalies</b> tab for the full list and a scatter view.</div>`;
+}
+
+function quickCorrelationSummary(){
+  const pairs = topCorrelations(state.rows, 5);
+  if (!pairs.length) return "<div class='msg warn'>Need at least 2 numeric columns for correlations.</div>";
+  let html = "<div class='glass-panel'>";
+  pairs.forEach(p => { html += `<div class="insight-card">🔗 &nbsp; <b>${escapeHtml(p.a)}</b> vs <b>${escapeHtml(p.b)}</b>: r = ${p.corr}</div>`; });
+  html += "</div><p class='small-note'>Full heatmap is in the 📊 Overview tab.</p>";
+  return html;
+}
+
+function setupQuickInsights(){
+  const resultEl = document.getElementById("quickResult");
+  document.getElementById("qiSummaryBtn").addEventListener("click", () => { resultEl.innerHTML = quickSummaryStatistics(); });
+  document.getElementById("qiOutliersBtn").addEventListener("click", () => { resultEl.innerHTML = quickOutlierSummary(); });
+  document.getElementById("qiCorrBtn").addEventListener("click", () => { resultEl.innerHTML = quickCorrelationSummary(); });
+}
+
+/* ---------------- tabs + wiring ---------------- */
+function setupTabs(){
+  document.querySelectorAll(".tabbtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tabbtn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".tabpanel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+      window.dispatchEvent(new Event("resize"));
+    });
+  });
+}
+
+function wireEvents(){
+  document.getElementById("csvInput").addEventListener("change", (e) => { if (e.target.files[0]) handleCsvUpload(e.target.files[0]); });
+  document.getElementById("applyRangeBtn").addEventListener("click", () => { applyFilters(); renderAll(); });
+  document.getElementById("resetFiltersBtn").addEventListener("click", () => { buildFilterControls(); state.rows = state.rawRows.slice(); renderAll(); });
+  document.getElementById("downloadCsvBtn").addEventListener("click", downloadFilteredCsv);
+  document.getElementById("genInsightsBtn").addEventListener("click", generateInsights);
+  document.getElementById("askBtn").addEventListener("click", askJarvis);
+  document.getElementById("buildPdfBtn").addEventListener("click", buildPdfReport);
+  document.getElementById("previewSearch").addEventListener("input", (e) => { state.previewSearchTerm = e.target.value; renderPreviewTable(state.rows); });
+  setupDropzoneAndSamples();
+  setupQuickInsights();
+}
+
+function setupRippleEffect(){
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn");
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const span = document.createElement("span");
+    span.className = "ripple";
+    span.style.width = span.style.height = size + "px";
+    span.style.left = (e.clientX - rect.left - size/2) + "px";
+    span.style.top = (e.clientY - rect.top - size/2) + "px";
+    btn.appendChild(span);
+    setTimeout(() => span.remove(), 650);
+  });
+}
+
+(async function init(){
+  setupThemePicker();
+  setupTabs();
+  wireEvents();
+  setupRippleEffect();
+  await initCapabilities();
+})();
+
+</script>
+</body>
+</html>

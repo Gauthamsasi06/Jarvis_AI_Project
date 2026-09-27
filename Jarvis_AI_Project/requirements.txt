@@ -1,0 +1,9 @@
+streamlit>=1.36
+pandas>=2.0
+numpy>=1.26
+plotly>=5.20
+anthropic>=0.34
+openai>=1.40
+scikit-learn>=1.4
+fpdf2>=2.7
+kaleido>=0.2.1
